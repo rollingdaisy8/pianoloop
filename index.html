@@ -1,0 +1,327 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Piano Loop Coach V1.2</title>
+<style>
+:root{--paper:#f5f1e8;--paper2:#fbf9f4;--ink:#171714;--muted:#777268;--line:#d8d1c5;--accent:#5c2333;--accentSoft:#efe1e6}
+*{box-sizing:border-box}body{margin:0;background:var(--paper);color:var(--ink);font-family:Inter,system-ui,-apple-system,"Segoe UI",sans-serif}
+button,input,textarea{font:inherit}button{cursor:pointer}button:disabled{opacity:.4;cursor:not-allowed}
+.app{max-width:1180px;margin:auto;padding:24px}.top{display:flex;justify-content:space-between;gap:16px;margin-bottom:18px}
+.brand small{display:block;letter-spacing:.18em;text-transform:uppercase;font-size:10px;color:var(--muted);margin-bottom:6px}
+.brand h1{margin:0;font:600 30px Georgia,serif}.brand p{margin:5px 0 0;color:var(--muted);font-size:13px}
+.grid{display:grid;grid-template-columns:305px 1fr;gap:18px}.panel{background:var(--paper2);border:1px solid var(--line);border-radius:18px;padding:16px}
+.main{display:grid;gap:18px}.label{font-size:10px;letter-spacing:.14em;text-transform:uppercase;color:var(--muted);margin-bottom:8px}.title{font-weight:800;margin-bottom:12px}
+.stack{display:grid;gap:9px}.row{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+input,textarea{width:100%;border:1px solid var(--line);border-radius:11px;background:#fffefb;padding:10px 12px;color:var(--ink)}
+textarea{min-height:76px;resize:vertical}button{border:1px solid var(--line);border-radius:11px;background:#fffefb;padding:9px 12px;color:var(--ink)}
+button.primary{background:var(--accent);border-color:var(--accent);color:#fff}.danger{color:#8a2e2e}.soft{background:#eee9e0}
+.hr{height:1px;background:var(--line);margin:14px 0}.small,.status{font-size:12px;color:var(--muted);line-height:1.45}.status{min-height:18px}
+.song-list,.measure-list,.recordings{display:grid;gap:8px}.song{position:relative;width:100%;text-align:left;padding:11px;border:1px solid var(--line);border-radius:12px;background:#fffefb}
+.song.active:before{content:"";position:absolute;left:-1px;top:8px;bottom:8px;width:3px;border-radius:3px;background:var(--accent)}
+.song-name{font:600 15px Georgia,serif}.song-meta{font-size:11px;color:var(--muted);margin-top:3px}
+.now{display:flex;justify-content:space-between;gap:14px;align-items:flex-start;padding-bottom:12px;border-bottom:1px solid var(--line)}
+.piece{font:600 26px Georgia,serif}.meta{font-size:12px;color:var(--muted);margin-top:4px}.badge{border:1px solid var(--line);border-radius:999px;padding:6px 10px;font-size:11px;color:var(--muted)}
+.video{margin-top:14px;aspect-ratio:16/9;background:#111;border-radius:14px;overflow:hidden;display:flex;align-items:center;justify-content:center;color:#aaa}.video iframe{width:100%;height:100%;border:0}
+.transport{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-top:10px}.time{margin-left:auto;font-variant-numeric:tabular-nums;font-size:12px;color:var(--muted)}
+.builder{margin-top:14px;padding:12px;border:1px solid var(--line);border-radius:13px;background:#f8f5ef}
+.markrow{display:grid;grid-template-columns:1fr 1fr auto;gap:8px}.subrow{display:grid;grid-template-columns:minmax(160px,1fr) 110px 110px auto;gap:8px;margin-top:8px}
+.timeline{margin-top:14px}.strip{display:flex;gap:7px;overflow-x:auto;padding-bottom:3px}.chip{flex:0 0 auto;min-width:92px;text-align:left;padding:9px 10px;border:1px solid var(--line);border-radius:11px;background:#fffefb}
+.chip.active{background:var(--accentSoft);border-color:#c8a9b3}.chip b{display:block;font-size:12px}.chip span{display:block;font-size:10px;color:var(--muted);margin-top:2px}
+.measure{display:grid;grid-template-columns:auto 1fr auto;gap:10px;align-items:center;padding:9px 10px;border:1px solid var(--line);border-radius:11px;background:#fffefb}.measure.active{background:#f8edf0}
+.recbar{display:flex;gap:8px;align-items:center;flex-wrap:wrap}.record{width:48px;height:48px;border-radius:50%;padding:0;background:var(--accent);border-color:var(--accent);color:#fff}.dot{display:inline-block;width:10px;height:10px;background:white;border-radius:50%}
+.volume{margin-left:auto;display:flex;gap:8px;align-items:center;min-width:260px;border:1px solid var(--line);border-radius:11px;padding:7px 10px;background:#fffefb}.volume input{padding:0;border:0;background:transparent}.volval{font-size:12px;min-width:38px;text-align:right}
+.rec{border:1px solid var(--line);border-radius:13px;padding:12px;background:#fffefb}.rec.active{border-color:#b58d99}.rechead{display:flex;justify-content:space-between;gap:12px;align-items:center}.take{font:600 17px Georgia,serif}
+.wave{margin-top:9px;border:1px solid var(--line);border-radius:10px;background:#f7f4ee;padding:8px}canvas{width:100%;height:115px;display:block}audio{width:100%;margin-top:8px}
+.notice{font-size:11px;color:var(--muted);line-height:1.5;border:1px dashed var(--line);border-radius:11px;padding:10px;background:#f8f5ef}
+@media(max-width:860px){.grid{grid-template-columns:1fr}.markrow,.subrow{grid-template-columns:1fr 1fr!important}.volume{margin-left:0;width:100%}.time{margin-left:0}}
+@media(max-width:520px){.app{padding:12px}.markrow,.subrow{grid-template-columns:1fr!important}}
+</style>
+</head>
+<body>
+<div class="app">
+  <div class="top">
+    <div class="brand"><small>Practice Studio</small><h1>Piano Loop Coach</h1><p>Listen · Loop · Record · Compare</p></div>
+    <button id="persistBtn" class="soft">저장 보호</button>
+  </div>
+
+  <div class="grid">
+    <aside class="panel">
+      <div class="label">Library</div><div class="title">곡 보관함</div>
+      <div class="stack">
+        <input id="songTitle" placeholder="곡 제목">
+        <input id="composer" placeholder="작곡가">
+        <input id="youtubeUrl" placeholder="YouTube 링크">
+        <textarea id="notes" placeholder="연습 메모"></textarea>
+        <button id="addSong" class="primary">+ 곡 추가</button>
+      </div>
+      <div class="hr"></div>
+      <div id="songList" class="song-list"></div>
+      <div id="libraryStatus" class="status"></div>
+      <div class="hr"></div>
+      <div class="row"><button id="exportBtn">백업</button><button id="importBtn">복원</button><input id="importFile" type="file" accept=".json,application/json" hidden></div>
+      <div class="notice" style="margin-top:10px">곡·마디·녹음은 이 브라우저에 저장됩니다. 같은 GitHub Pages 주소라면 <code>index.html</code>을 교체해도 유지됩니다.</div>
+    </aside>
+
+    <main class="main">
+      <section class="panel">
+        <div class="now">
+          <div><div class="label">Now Practicing</div><div id="currentTitle" class="piece">곡을 선택하세요</div><div id="currentMeta" class="meta"></div></div>
+          <div id="practiceBadge" class="badge">No measure selected</div>
+        </div>
+        <div id="videoBox" class="video">곡을 선택하세요</div>
+        <div class="transport">
+          <button id="playPause" disabled>▶ / Ⅱ</button>
+          <button id="playReferenceBtn" disabled>원본 구간 듣기</button>
+          <span id="timeLabel" class="time">00:00.0</span>
+        </div>
+
+        <div class="builder">
+          <div class="label">Mark a measure</div>
+          <div class="markrow">
+            <button id="markStart" disabled>① 현재 위치를 시작으로</button>
+            <button id="markEnd" disabled>② 현재 위치를 끝으로</button>
+            <button id="saveMeasure" class="primary" disabled>+ 마디 저장</button>
+          </div>
+          <div class="subrow">
+            <input id="measureName" placeholder="마디 이름 (예: 12마디, A-3)">
+            <input id="startSec" type="number" min="0" step="0.1" placeholder="시작 초">
+            <input id="endSec" type="number" min="0" step="0.1" placeholder="끝 초">
+            <button id="clearMarks">초기화</button>
+          </div>
+        </div>
+
+        <div class="timeline">
+          <div class="label">Measure Timeline</div>
+          <div id="measureStrip" class="strip"></div>
+          <div id="measureList" class="measure-list" style="margin-top:9px"></div>
+        </div>
+      </section>
+
+      <section class="panel">
+        <div class="label">Your Take</div><div class="title">내 연주 녹음 & A/B 비교</div>
+        <div class="recbar">
+          <button id="recordBtn" class="record" disabled aria-label="녹음 시작"><span class="dot"></span></button>
+          <button id="stopRecordBtn" disabled>■ 종료</button>
+          <button id="playMyTakeBtn" disabled>내 연주 듣기</button>
+          <button id="abBtn" disabled>원본 → 내 연주</button>
+          <div class="volume">
+            <span class="small">내 연주 볼륨</span>
+            <input id="volumeSlider" type="range" min="0.5" max="3" step="0.1" value="2">
+            <span id="volumeValue" class="volval">2.0×</span>
+          </div>
+        </div>
+        <div id="recordStatus" class="status"></div>
+        <div id="recordings" class="recordings"></div>
+      </section>
+    </main>
+  </div>
+</div>
+
+<script>
+(() => {
+"use strict";
+
+const DB_NAME="piano-loop-coach-v12", DB_VERSION=1, SONGS="songs", RECS="recordings";
+let db=null,songs=[],currentSong=null,selectedMeasureId=null,selectedRecordingId=null;
+let ytPlayer=null,ytReady=false,ticker=null,looping=false,endTimer=null;
+let mediaRecorder=null,recordingStream=null,chunks=[];
+let activeAudioCtx=null,activeSource=null;
+const $=id=>document.getElementById(id);
+
+function uid(){return crypto.randomUUID?crypto.randomUUID():(Date.now()+"-"+Math.random().toString(16).slice(2))}
+function fmt(sec){sec=Number.isFinite(+sec)?Math.max(0,+sec):0;const m=Math.floor(sec/60),s=sec-m*60;return `${String(m).padStart(2,"0")}:${s.toFixed(1).padStart(4,"0")}`}
+function esc(v){return String(v??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]))}
+function openDB(){return new Promise((resolve,reject)=>{const req=indexedDB.open(DB_NAME,DB_VERSION);req.onupgradeneeded=()=>{const d=req.result;if(!d.objectStoreNames.contains(SONGS))d.createObjectStore(SONGS,{keyPath:"id"});if(!d.objectStoreNames.contains(RECS)){const r=d.createObjectStore(RECS,{keyPath:"id"});r.createIndex("songId","songId");r.createIndex("measureId","measureId")}};req.onsuccess=()=>resolve(req.result);req.onerror=()=>reject(req.error)})}
+function store(name,mode="readonly"){return db.transaction(name,mode).objectStore(name)}
+function getAll(name){return new Promise((resolve,reject)=>{const r=store(name).getAll();r.onsuccess=()=>resolve(r.result);r.onerror=()=>reject(r.error)})}
+function put(name,val){return new Promise((resolve,reject)=>{const r=store(name,"readwrite").put(val);r.onsuccess=()=>resolve(r.result);r.onerror=()=>reject(r.error)})}
+function del(name,key){return new Promise((resolve,reject)=>{const r=store(name,"readwrite").delete(key);r.onsuccess=()=>resolve();r.onerror=()=>reject(r.error)})}
+
+function youtubeId(url){
+  try{
+    const u=new URL(url);
+    if(u.hostname.includes("youtu.be"))return u.pathname.slice(1).split("/")[0];
+    if(u.hostname.includes("youtube.com")){
+      if(u.pathname.startsWith("/shorts/"))return u.pathname.split("/")[2];
+      if(u.pathname.startsWith("/embed/"))return u.pathname.split("/")[2];
+      return u.searchParams.get("v");
+    }
+  }catch(e){}
+  return null;
+}
+function ensureYouTubeAPI(){
+  if(window.YT&&window.YT.Player)return Promise.resolve();
+  return new Promise(resolve=>{
+    const prev=window.onYouTubeIframeAPIReady;
+    window.onYouTubeIframeAPIReady=()=>{if(typeof prev==="function")prev();resolve()};
+    if(!document.querySelector('script[src*="youtube.com/iframe_api"]')){
+      const s=document.createElement("script");s.src="https://www.youtube.com/iframe_api";document.head.appendChild(s)
+    }
+  });
+}
+function currentMeasure(){return currentSong?.measures?.find(m=>m.id===selectedMeasureId)||null}
+async function refreshSongs(){songs=await getAll(SONGS);if(currentSong)currentSong=songs.find(s=>s.id===currentSong.id)||null;renderSongs()}
+function renderSongs(){
+  const box=$("songList");box.innerHTML="";
+  if(!songs.length){box.innerHTML='<div class="small">아직 저장한 곡이 없습니다.</div>';return}
+  songs.sort((a,b)=>(b.updatedAt||0)-(a.updatedAt||0));
+  songs.forEach(s=>{
+    const b=document.createElement("button");
+    b.className="song"+(currentSong?.id===s.id?" active":"");
+    b.innerHTML=`<div class="song-name">${esc(s.title)}</div><div class="song-meta">${esc(s.composer||"Unknown composer")} · ${(s.measures||[]).length} measures</div>`;
+    b.addEventListener("click",()=>selectSong(s.id));box.appendChild(b)
+  });
+}
+async function selectSong(id){
+  const s=songs.find(x=>x.id===id);if(!s)return;
+  currentSong=s;selectedMeasureId=null;selectedRecordingId=null;looping=false;
+  clearInterval(ticker);clearTimeout(endTimer);stopActiveTake();
+  $("currentTitle").textContent=s.title;$("currentMeta").textContent=[s.composer,"YouTube reference"].filter(Boolean).join(" · ");$("practiceBadge").textContent="No measure selected";
+  ["deleteSong","playPause","markStart","markEnd","saveMeasure"].forEach(id=>$(id).disabled=false);
+  ["recordBtn","playReferenceBtn","playMyTakeBtn","abBtn"].forEach(id=>$(id).disabled=true);
+  renderSongs();renderMeasures();await renderRecordings();
+  $("videoBox").innerHTML='<div id="ytPlayerHost" style="width:100%;height:100%"></div>';
+  await ensureYouTubeAPI();
+  ytReady=false;ytPlayer=new YT.Player("ytPlayerHost",{videoId:s.youtubeId,playerVars:{playsinline:1,rel:0},events:{onReady:()=>{ytReady=true;startTicker()}}})
+}
+function currentTime(){if(!ytPlayer||!ytReady)return 0;try{return Number(ytPlayer.getCurrentTime())||0}catch(e){return 0}}
+function playYT(){if(ytPlayer&&ytReady)ytPlayer.playVideo()}
+function pauseYT(){if(ytPlayer&&ytReady)ytPlayer.pauseVideo()}
+function seekPlay(sec){if(ytPlayer&&ytReady){ytPlayer.seekTo(Number(sec),true);ytPlayer.playVideo()}}
+function startTicker(){
+  clearInterval(ticker);
+  ticker=setInterval(()=>{const t=currentTime();$("timeLabel").textContent=fmt(t);const m=currentMeasure();if(looping&&m&&t>=m.end-0.03)seekPlay(m.start)},90)
+}
+function renderMeasures(){
+  const strip=$("measureStrip"),list=$("measureList");strip.innerHTML="";list.innerHTML="";
+  const arr=currentSong?.measures||[];
+  if(!arr.length){strip.innerHTML='<div class="small">저장한 마디가 없습니다.</div>';return}
+  arr.forEach((m,i)=>{
+    const chip=document.createElement("button");chip.className="chip"+(selectedMeasureId===m.id?" active":"");chip.innerHTML=`<b>${esc(m.name||`${i+1}마디`)}</b><span>${fmt(m.start)}–${fmt(m.end)}</span>`;chip.addEventListener("click",()=>selectMeasure(m.id,true));strip.appendChild(chip);
+    const row=document.createElement("div");row.className="measure"+(selectedMeasureId===m.id?" active":"");row.innerHTML=`<button class="playMeasure">▶</button><div><b>${esc(m.name||`${i+1}마디`)}</b><div class="small">${fmt(m.start)} → ${fmt(m.end)} · ${(m.end-m.start).toFixed(1)}초</div></div><button class="danger deleteMeasure">×</button>`;
+    row.querySelector(".playMeasure").addEventListener("click",()=>selectMeasure(m.id,true));row.querySelector(".deleteMeasure").addEventListener("click",()=>deleteMeasure(m.id));list.appendChild(row)
+  })
+}
+async function selectMeasure(id,play=false){
+  selectedMeasureId=id;selectedRecordingId=null;looping=true;stopActiveTake();clearTimeout(endTimer);
+  const m=currentMeasure();$("practiceBadge").textContent=m?m.name:"No measure selected";$("recordBtn").disabled=false;$("playReferenceBtn").disabled=false;
+  renderMeasures();await renderRecordings();if(play&&m)seekPlay(m.start)
+}
+async function deleteMeasure(id){
+  if(!currentSong)return;
+  currentSong.measures=(currentSong.measures||[]).filter(m=>m.id!==id);currentSong.updatedAt=Date.now();
+  const recs=await getAll(RECS);for(const r of recs.filter(r=>r.songId===currentSong.id&&r.measureId===id))await del(RECS,r.id);
+  if(selectedMeasureId===id){selectedMeasureId=null;selectedRecordingId=null;looping=false;$("practiceBadge").textContent="No measure selected"}
+  await put(SONGS,currentSong);await refreshSongs();renderMeasures();await renderRecordings()
+}
+async function renderRecordings(){
+  const box=$("recordings");box.innerHTML="";
+  if(!currentSong||!selectedMeasureId){box.innerHTML='<div class="small">연습할 마디를 선택하면 Take가 여기에 나타납니다.</div>';updateCompareButtons();return}
+  const all=await getAll(RECS);const arr=all.filter(r=>r.songId===currentSong.id&&r.measureId===selectedMeasureId).sort((a,b)=>b.createdAt-a.createdAt);
+  if(!arr.length){box.innerHTML='<div class="small">아직 녹음이 없습니다. 원형 REC 버튼을 눌러 첫 Take를 만들어보세요.</div>';updateCompareButtons();return}
+  if(!selectedRecordingId)selectedRecordingId=arr[0].id;
+  for(const [idx,r] of arr.entries()){
+    const el=document.createElement("div");el.className="rec"+(selectedRecordingId===r.id?" active":"");
+    el.innerHTML=`<div class="rechead"><div><div class="take">Take ${arr.length-idx}</div><div class="small">${new Date(r.createdAt).toLocaleString()}</div></div><div class="row"><button class="selectTake">선택</button><button class="danger deleteTake">삭제</button></div></div><div class="wave"><canvas width="1000" height="170"></canvas></div><audio controls preload="metadata"></audio>`;
+    const audio=el.querySelector("audio"),url=URL.createObjectURL(r.blob);audio.src=url;audio.volume=1;
+    el.querySelector(".selectTake").addEventListener("click",()=>{selectedRecordingId=r.id;renderRecordings()});
+    el.querySelector(".deleteTake").addEventListener("click",async()=>{await del(RECS,r.id);if(selectedRecordingId===r.id)selectedRecordingId=null;URL.revokeObjectURL(url);await renderRecordings()});
+    box.appendChild(el);drawWaveform(r.blob,el.querySelector("canvas"))
+  }
+  updateCompareButtons()
+}
+function updateCompareButtons(){const ok=!!selectedMeasureId&&!!selectedRecordingId;$("playMyTakeBtn").disabled=!ok;$("abBtn").disabled=!ok}
+async function drawWaveform(blob,canvas){
+  const ctx=canvas.getContext("2d");ctx.clearRect(0,0,canvas.width,canvas.height);
+  try{
+    const arr=await blob.arrayBuffer(),ac=new (window.AudioContext||window.webkitAudioContext)(),buffer=await ac.decodeAudioData(arr.slice(0)),data=buffer.getChannelData(0);
+    const w=canvas.width,h=canvas.height,mid=h/2,spp=Math.max(1,Math.floor(data.length/w));
+    ctx.strokeStyle="#5c2333";ctx.lineWidth=1;ctx.beginPath();
+    for(let x=0;x<w;x++){const start=x*spp,end=Math.min(data.length,start+spp);let min=1,max=-1;for(let i=start;i<end;i++){const v=data[i];if(v<min)min=v;if(v>max)max=v}ctx.moveTo(x,mid+min*mid*.82);ctx.lineTo(x,mid+max*mid*.82)}
+    ctx.stroke();ctx.strokeStyle="#cfc8bc";ctx.beginPath();ctx.moveTo(0,mid);ctx.lineTo(w,mid);ctx.stroke();await ac.close()
+  }catch(e){ctx.fillStyle="#777";ctx.font="16px sans-serif";ctx.fillText("파형을 표시할 수 없습니다.",18,28)}
+}
+async function startRecording(){
+  if(!selectedMeasureId)return;
+  try{
+    recordingStream=await navigator.mediaDevices.getUserMedia({audio:{echoCancellation:false,noiseSuppression:false,autoGainControl:true}});
+    chunks=[];mediaRecorder=new MediaRecorder(recordingStream);
+    mediaRecorder.ondataavailable=e=>{if(e.data.size)chunks.push(e.data)};
+    mediaRecorder.onstop=async()=>{
+      const blob=new Blob(chunks,{type:mediaRecorder.mimeType||"audio/webm"}),rec={id:uid(),songId:currentSong.id,measureId:selectedMeasureId,createdAt:Date.now(),blob};
+      await put(RECS,rec);selectedRecordingId=rec.id;recordingStream.getTracks().forEach(t=>t.stop());recordingStream=null;$("recordBtn").disabled=false;$("stopRecordBtn").disabled=true;$("recordStatus").textContent="녹음 저장 완료";await renderRecordings()
+    };
+    mediaRecorder.start();$("recordBtn").disabled=true;$("stopRecordBtn").disabled=false;$("recordStatus").textContent="Recording…"
+  }catch(e){$("recordStatus").textContent="마이크 권한을 사용할 수 없습니다. GitHub Pages에서 마이크 권한을 허용해 주세요."}
+}
+function stopRecording(){if(mediaRecorder&&mediaRecorder.state!=="inactive")mediaRecorder.stop()}
+async function getSelectedRecording(){if(!selectedRecordingId)return null;const all=await getAll(RECS);return all.find(r=>r.id===selectedRecordingId)||null}
+function stopActiveTake(){if(activeSource){try{activeSource.stop()}catch(e){}activeSource=null}if(activeAudioCtx){try{activeAudioCtx.close()}catch(e){}activeAudioCtx=null}}
+async function playBlobWithGain(blob,onEnded){
+  stopActiveTake();const arr=await blob.arrayBuffer(),ac=new (window.AudioContext||window.webkitAudioContext)();activeAudioCtx=ac;
+  const buffer=await ac.decodeAudioData(arr.slice(0)),source=ac.createBufferSource(),gain=ac.createGain();activeSource=source;gain.gain.value=parseFloat($("volumeSlider").value)||2;source.buffer=buffer;source.connect(gain).connect(ac.destination);
+  source.onended=()=>{if(activeAudioCtx===ac){activeSource=null;activeAudioCtx=null}ac.close();if(typeof onEnded==="function")onEnded()};source.start()
+}
+async function playMyTake(){const rec=await getSelectedRecording();if(!rec)return;looping=false;pauseYT();$("recordStatus").textContent=`내 연주 재생 · ${$("volumeSlider").value}×`;await playBlobWithGain(rec.blob,()=>{$("recordStatus").textContent=""})}
+function playReferenceOnce(onDone=null){
+  const m=currentMeasure();if(!m)return;looping=false;stopActiveTake();seekPlay(m.start);clearTimeout(endTimer);endTimer=setTimeout(()=>{pauseYT();if(typeof onDone==="function")onDone()},Math.max(.1,m.end-m.start)*1000)
+}
+async function playAB(){
+  const rec=await getSelectedRecording();if(!rec||!currentMeasure())return;
+  $("recordStatus").textContent="A/B · 원본";
+  playReferenceOnce(async()=>{$("recordStatus").textContent="A/B · 내 연주";await new Promise(r=>setTimeout(r,600));await playBlobWithGain(rec.blob,()=>{$("recordStatus").textContent="A/B 비교 완료"})})
+}
+async function requestPersistence(){
+  if(!navigator.storage?.persist){$("libraryStatus").textContent="이 브라우저에서는 저장 보호를 지원하지 않습니다.";return}
+  const granted=await navigator.storage.persist();$("libraryStatus").textContent=granted?"저장 보호 요청이 허용되었습니다.":"저장 보호가 허용되지 않았습니다."
+}
+function blobToDataURL(blob){return new Promise((resolve,reject)=>{const fr=new FileReader();fr.onload=()=>resolve(fr.result);fr.onerror=()=>reject(fr.error);fr.readAsDataURL(blob)})}
+async function dataURLToBlob(url){const r=await fetch(url);return await r.blob()}
+async function exportBackup(){
+  const songData=await getAll(SONGS),recData=await getAll(RECS),serialized=[];
+  for(const r of recData)serialized.push({...r,blobDataUrl:await blobToDataURL(r.blob),blob:undefined});
+  const payload={app:"Piano Loop Coach V1.2",exportedAt:new Date().toISOString(),songs:songData,recordings:serialized},blob=new Blob([JSON.stringify(payload,null,2)],{type:"application/json"}),url=URL.createObjectURL(blob),a=document.createElement("a");
+  a.href=url;a.download="piano-loop-coach-v12-backup.json";a.click();setTimeout(()=>URL.revokeObjectURL(url),1000)
+}
+async function importBackup(file){
+  try{
+    const obj=JSON.parse(await file.text());if(!Array.isArray(obj.songs))throw new Error("올바른 백업 파일이 아닙니다.");
+    for(const s of obj.songs)await put(SONGS,s);
+    if(Array.isArray(obj.recordings))for(const r of obj.recordings){if(!r.blobDataUrl)continue;const blob=await dataURLToBlob(r.blobDataUrl),rec={...r,blob};delete rec.blobDataUrl;await put(RECS,rec)}
+    await refreshSongs();$("libraryStatus").textContent="백업 복원 완료"
+  }catch(e){$("libraryStatus").textContent="복원 실패: "+e.message}
+}
+
+$("addSong").addEventListener("click",async()=>{
+  const title=$("songTitle").value.trim(),id=youtubeId($("youtubeUrl").value.trim());if(!title||!id){alert("곡 제목과 올바른 YouTube 링크를 입력해 주세요.");return}
+  const s={id:uid(),title,composer:$("composer").value.trim(),notes:$("notes").value.trim(),youtubeId:id,measures:[],createdAt:Date.now(),updatedAt:Date.now()};
+  await put(SONGS,s);["songTitle","composer","youtubeUrl","notes"].forEach(id=>$(id).value="");await refreshSongs();selectSong(s.id)
+});
+$("deleteSong").addEventListener("click",async()=>{
+  if(!currentSong)return;if(!confirm(`"${currentSong.title}"을 삭제할까요?`))return;
+  const all=await getAll(RECS);for(const r of all.filter(x=>x.songId===currentSong.id))await del(RECS,r.id);await del(SONGS,currentSong.id);
+  currentSong=null;selectedMeasureId=null;selectedRecordingId=null;looping=false;clearInterval(ticker);clearTimeout(endTimer);stopActiveTake();
+  $("currentTitle").textContent="곡을 선택하세요";$("currentMeta").textContent="";$("practiceBadge").textContent="No measure selected";$("videoBox").textContent="곡을 선택하세요";
+  ["deleteSong","playPause","markStart","markEnd","saveMeasure","recordBtn","playReferenceBtn","playMyTakeBtn","abBtn"].forEach(id=>$(id).disabled=true);await refreshSongs();renderMeasures();renderRecordings()
+});
+$("playPause").addEventListener("click",()=>{if(!ytReady)return;looping=false;ytPlayer.getPlayerState()===1?pauseYT():playYT()});
+$("playReferenceBtn").addEventListener("click",()=>playReferenceOnce());
+$("markStart").addEventListener("click",()=>{$("startSec").value=currentTime().toFixed(1)});
+$("markEnd").addEventListener("click",()=>{$("endSec").value=currentTime().toFixed(1)});
+$("clearMarks").addEventListener("click",()=>{$("measureName").value="";$("startSec").value="";$("endSec").value=""});
+$("saveMeasure").addEventListener("click",async()=>{
+  if(!currentSong)return;const start=Number($("startSec").value),end=Number($("endSec").value);if(!Number.isFinite(start)||!Number.isFinite(end)||end<=start){alert("끝 시간은 시작 시간보다 커야 합니다.");return}
+  currentSong.measures=currentSong.measures||[];currentSong.measures.push({id:uid(),name:$("measureName").value.trim()||`${currentSong.measures.length+1}마디`,start,end});currentSong.updatedAt=Date.now();await put(SONGS,currentSong);
+  $("measureName").value="";$("startSec").value="";$("endSec").value="";await refreshSongs();renderMeasures()
+});
+$("recordBtn").addEventListener("click",startRecording);$("stopRecordBtn").addEventListener("click",stopRecording);$("playMyTakeBtn").addEventListener("click",playMyTake);$("abBtn").addEventListener("click",playAB);
+$("volumeSlider").addEventListener("input",()=>{$("volumeValue").textContent=`${Number($("volumeSlider").value).toFixed(1)}×`});
+$("persistBtn").addEventListener("click",requestPersistence);$("exportBtn").addEventListener("click",exportBackup);$("importBtn").addEventListener("click",()=>$("importFile").click());$("importFile").addEventListener("change",e=>{if(e.target.files[0])importBackup(e.target.files[0])});
+
+(async()=>{try{db=await openDB();await refreshSongs();$("libraryStatus").textContent="브라우저 저장소 준비 완료"}catch(e){$("libraryStatus").textContent="저장소 초기화 실패: "+e.message}})();
+})();
+</script>
+</body>
+</html>
