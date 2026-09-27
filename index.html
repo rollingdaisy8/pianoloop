@@ -54,7 +54,8 @@ button.primary{background:var(--accent);border-color:var(--accent);color:#fff}.d
         <input id="composer" placeholder="작곡가">
         <input id="youtubeUrl" placeholder="YouTube 링크">
         <textarea id="notes" placeholder="연습 메모"></textarea>
-        <button id="addSong" class="primary">+ 곡 추가</button>
+        <button id="addSong" class="primary" disabled>+ 곡 추가</button>
+        <div id="linkStatus" class="status">앱 저장소를 준비 중입니다…</div>
       </div>
       <div class="hr"></div>
       <div id="songList" class="song-list"></div>
@@ -123,12 +124,18 @@ button.primary{background:var(--accent);border-color:var(--accent);color:#fff}.d
 (() => {
 "use strict";
 
-const DB_NAME="piano-loop-coach-v12", DB_VERSION=1, SONGS="songs", RECS="recordings";
+const DB_NAME="piano-loop-coach-v11", DB_VERSION=1, SONGS="songs", RECS="recordings";
 let db=null,songs=[],currentSong=null,selectedMeasureId=null,selectedRecordingId=null;
 let ytPlayer=null,ytReady=false,ticker=null,looping=false,endTimer=null;
 let mediaRecorder=null,recordingStream=null,chunks=[];
 let activeAudioCtx=null,activeSource=null;
 const $=id=>document.getElementById(id);
+let dbReady=false;
+function setLinkStatus(message,type=""){
+  const el=$("linkStatus");
+  el.textContent=message;
+  el.className="status"+(type?` ${type}`:"");
+}
 
 function uid(){return crypto.randomUUID?crypto.randomUUID():(Date.now()+"-"+Math.random().toString(16).slice(2))}
 function fmt(sec){sec=Number.isFinite(+sec)?Math.max(0,+sec):0;const m=Math.floor(sec/60),s=sec-m*60;return `${String(m).padStart(2,"0")}:${s.toFixed(1).padStart(4,"0")}`}
@@ -184,7 +191,21 @@ async function selectSong(id){
   renderSongs();renderMeasures();await renderRecordings();
   $("videoBox").innerHTML='<div id="ytPlayerHost" style="width:100%;height:100%"></div>';
   await ensureYouTubeAPI();
-  ytReady=false;ytPlayer=new YT.Player("ytPlayerHost",{videoId:s.youtubeId,playerVars:{playsinline:1,rel:0},events:{onReady:()=>{ytReady=true;startTicker()}}})
+  ytReady=false;
+  try{
+    ytPlayer=new YT.Player("ytPlayerHost",{
+      videoId:s.youtubeId,
+      playerVars:{playsinline:1,rel:0},
+      events:{
+        onReady:()=>{ytReady=true;startTicker()},
+        onError:(ev)=>{
+          $("videoBox").innerHTML='<div style="padding:20px;text-align:center"><b>이 YouTube 영상을 불러올 수 없습니다.</b><div class="small" style="margin-top:6px">영상의 외부 삽입이 제한되어 있거나 링크가 유효하지 않을 수 있습니다. 다른 연주 영상을 사용해 보세요.</div></div>';
+        }
+      }
+    });
+  }catch(e){
+    $("videoBox").innerHTML='<div style="padding:20px;text-align:center"><b>YouTube 플레이어 로드 실패</b><div class="small" style="margin-top:6px">'+esc(e?.message||e)+'</div></div>';
+  }
 }
 function currentTime(){if(!ytPlayer||!ytReady)return 0;try{return Number(ytPlayer.getCurrentTime())||0}catch(e){return 0}}
 function playYT(){if(ytPlayer&&ytReady)ytPlayer.playVideo()}
@@ -295,9 +316,46 @@ async function importBackup(file){
 }
 
 $("addSong").addEventListener("click",async()=>{
-  const title=$("songTitle").value.trim(),id=youtubeId($("youtubeUrl").value.trim());if(!title||!id){alert("곡 제목과 올바른 YouTube 링크를 입력해 주세요.");return}
-  const s={id:uid(),title,composer:$("composer").value.trim(),notes:$("notes").value.trim(),youtubeId:id,measures:[],createdAt:Date.now(),updatedAt:Date.now()};
-  await put(SONGS,s);["songTitle","composer","youtubeUrl","notes"].forEach(id=>$(id).value="");await refreshSongs();selectSong(s.id)
+  if(!dbReady){
+    setLinkStatus("저장소가 아직 준비되지 않았습니다. 페이지를 새로고침해 주세요.","error");
+    return;
+  }
+  const raw=$("youtubeUrl").value.trim();
+  const id=youtubeId(raw);
+  let title=$("songTitle").value.trim();
+
+  if(!id){
+    setLinkStatus("YouTube 링크를 확인해 주세요. watch / youtu.be / shorts 링크를 사용할 수 있습니다.","error");
+    return;
+  }
+  if(!title) title="YouTube 연습곡";
+
+  const btn=$("addSong");
+  btn.disabled=true;
+  setLinkStatus("곡을 보관함에 추가하는 중…");
+
+  try{
+    const item={
+      id:uid(),
+      title,
+      composer:$("composer").value.trim(),
+      notes:$("notes").value.trim(),
+      youtubeId:id,
+      measures:[],
+      createdAt:Date.now(),
+      updatedAt:Date.now()
+    };
+    await put(SONGS,item);
+    ["songTitle","composer","youtubeUrl","notes"].forEach(id=>$(id).value="");
+    await refreshSongs();
+    setLinkStatus("추가 완료. 오른쪽에 영상을 불러옵니다.","ok");
+    await selectSong(item.id);
+  }catch(e){
+    console.error(e);
+    setLinkStatus("곡 추가 실패: "+(e?.message||e),"error");
+  }finally{
+    btn.disabled=false;
+  }
 });
 $("deleteSong").addEventListener("click",async()=>{
   if(!currentSong)return;if(!confirm(`"${currentSong.title}"을 삭제할까요?`))return;
@@ -318,9 +376,33 @@ $("saveMeasure").addEventListener("click",async()=>{
 });
 $("recordBtn").addEventListener("click",startRecording);$("stopRecordBtn").addEventListener("click",stopRecording);$("playMyTakeBtn").addEventListener("click",playMyTake);$("abBtn").addEventListener("click",playAB);
 $("volumeSlider").addEventListener("input",()=>{$("volumeValue").textContent=`${Number($("volumeSlider").value).toFixed(1)}×`});
+$("youtubeUrl").addEventListener("input",()=>{
+  const raw=$("youtubeUrl").value.trim();
+  if(!raw){
+    setLinkStatus(dbReady?"YouTube 링크를 붙여 넣어 주세요.":"앱 저장소를 준비 중입니다…");
+    return;
+  }
+  const id=youtubeId(raw);
+  if(id) setLinkStatus("사용 가능한 YouTube 링크입니다. + 곡 추가를 눌러주세요.","ok");
+  else setLinkStatus("YouTube 링크 형식을 확인해 주세요.","error");
+});
 $("persistBtn").addEventListener("click",requestPersistence);$("exportBtn").addEventListener("click",exportBackup);$("importBtn").addEventListener("click",()=>$("importFile").click());$("importFile").addEventListener("change",e=>{if(e.target.files[0])importBackup(e.target.files[0])});
 
-(async()=>{try{db=await openDB();await refreshSongs();$("libraryStatus").textContent="브라우저 저장소 준비 완료"}catch(e){$("libraryStatus").textContent="저장소 초기화 실패: "+e.message}})();
+(async()=>{
+  try{
+    db=await openDB();
+    dbReady=true;
+    await refreshSongs();
+    $("addSong").disabled=false;
+    $("libraryStatus").textContent="브라우저 저장소 준비 완료";
+    setLinkStatus("YouTube 링크를 붙여 넣어 주세요.");
+  }catch(e){
+    dbReady=false;
+    $("addSong").disabled=true;
+    $("libraryStatus").textContent="저장소 초기화 실패: "+e.message;
+    setLinkStatus("앱 저장소를 열지 못했습니다: "+e.message,"error");
+  }
+})();
 })();
 </script>
 </body>
